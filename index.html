@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超导量子设备低温运行仿真系统</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">❄</span>
+    <div>
+      <h1>超导量子设备低温运行仿真系统</h1>
+      <span class="subtitle">稀释制冷机 · 多级温区热延迟模型 · 检查点策略对比</span>
+    </div>
+  </div>
+  <div class="clock">
+    <div><span class="clock-label">仿真时刻</span><span id="simClock" class="clock-value">T+00:00:00</span></div>
+    <div><span class="clock-label">当前阶段</span><span id="phasePill" class="phase-pill">抽真空</span></div>
+    <div><span class="clock-label">运行状态</span><span id="runPill" class="run-pill stopped">已暂停</span></div>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左列：温区 + 图表 -->
+  <section class="col col-left">
+    <div class="card fridge-card">
+      <div class="card-head">
+        <h2>制冷机温区状态</h2>
+        <div class="legend" id="stageLegend"></div>
+      </div>
+      <div class="fridge-body" id="fridgeBody"></div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="card-head">
+        <h2>温区温度曲线</h2>
+        <div class="chart-tools">
+          <label class="mini-check"><input type="checkbox" id="chkShowEst" checked> 显示失效期估计值</label>
+          <label class="mini-check"><input type="checkbox" id="chkShowBranch" checked> 叠加分支轨迹</label>
+        </div>
+      </div>
+      <canvas id="tempChart" height="240"></canvas>
+      <div class="x-axis-label">时间（小时:分钟）</div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="card-head"><h2>线路噪声温度（等效，对数轴 mK）</h2></div>
+      <canvas id="noiseChart" height="150"></canvas>
+    </div>
+
+    <div class="card chart-card">
+      <div class="card-head">
+        <h2>级间延迟热流</h2>
+        <span class="hint">热流从历史温区传导，延迟后才抵达下一级</span>
+      </div>
+      <canvas id="fluxChart" height="150"></canvas>
+    </div>
+  </section>
+
+  <!-- 中列：控制 + 校准 + 传感器 -->
+  <section class="col col-mid">
+    <div class="card">
+      <div class="card-head"><h2>时间与阶段控制</h2></div>
+      <div class="ctrl-row">
+        <button id="btnRun" class="btn primary">▶ 开始</button>
+        <button id="btnPause" class="btn">⏸ 暂停</button>
+        <button id="btnStep" class="btn">⏭ 单步</button>
+      </div>
+      <div class="ctrl-row speed-row">
+        <span class="lbl">推演速度</span>
+        <div class="seg" id="speedSeg">
+          <button data-speed="1">×1</button>
+          <button data-speed="10">×10</button>
+          <button data-speed="60" class="active">×60</button>
+          <button data-speed="300">×300</button>
+          <button data-speed="900">×900</button>
+        </div>
+      </div>
+      <div class="phase-progress">
+        <div id="phaseBar" class="phase-bar"></div>
+        <div id="phaseGate" class="phase-gate"></div>
+      </div>
+      <div class="ctrl-row">
+        <button id="btnAdvance" class="btn warn">⏱ 提前进入下一阶段</button>
+        <button id="btnReset" class="btn ghost">↺ 重置</button>
+      </div>
+      <div class="ctrl-row">
+        <label class="mini-check"><input type="checkbox" id="chkAuto" checked> 门限满足时自动进入下一阶段</label>
+      </div>
+      <div id="penaltyBox" class="penalty-box hidden"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>信号线路与控制脉冲</h2></div>
+      <div id="lineGroups" class="line-groups"></div>
+      <div class="pulse-row">
+        <select id="pulseGroup" class="sel"></select>
+        <select id="pulseAmp" class="sel">
+          <option value="3">弱脉冲 · 3 nW</option>
+          <option value="15">标定脉冲 · 15 nW</option>
+          <option value="60" selected>强脉冲 · 60 nW</option>
+        </select>
+        <button id="btnPulse" class="btn small">⚡ 注入脉冲</button>
+      </div>
+      <div class="mini-wave">
+        <canvas id="waveCanvas" height="56"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>校准任务</h2>
+        <div class="cal-status" id="calGlobal">无有效校准</div>
+      </div>
+      <div class="cal-grid">
+        <select id="calType" class="sel">
+          <option value="resonator">谐振器频率标定</option>
+          <option value="rabi">Rabi / π 脉冲标定</option>
+          <option value="readout">读取矩阵校准</option>
+        </select>
+        <button id="btnCalStart" class="btn">开始校准</button>
+        <button id="btnCalCancel" class="btn ghost">取消</button>
+      </div>
+      <div id="calList" class="cal-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>传感器与数据链路</h2>
+        <button id="btnFaultAll" class="btn tiny ghost">模拟：MXC 传感器失效 90s</button>
+      </div>
+      <div id="sensorList" class="sensor-list"></div>
+      <div class="late-row">
+        <label class="lbl">注入链路延迟（数据迟到）</label>
+        <select id="lateDelay" class="sel">
+          <option value="0">无延迟</option>
+          <option value="5">5 s</option>
+          <option value="20" selected>20 s</option>
+          <option value="60">60 s</option>
+        </select>
+        <button id="btnLateInject" class="btn tiny">发送一批迟到读数</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右列：检查点/分支 + 事件 -->
+  <section class="col col-right">
+    <div class="card">
+      <div class="card-head">
+        <h2>检查点与降温策略</h2>
+        <span class="hint">从任意检查点派生策略并自动推演对比</span>
+      </div>
+      <div class="ctrl-row">
+        <button id="btnCheckpoint" class="btn">📌 保存检查点</button>
+      </div>
+      <div class="fork-row">
+        <span class="lbl">基于最新检查点派生：</span>
+        <div class="fork-btns">
+          <button class="btn tiny strategy" data-strategy="standard">标准策略</button>
+          <button class="btn tiny strategy" data-strategy="aggressive">激进策略</button>
+          <button class="btn tiny strategy" data-strategy="conservative">保守策略</button>
+        </div>
+      </div>
+      <div id="branchList" class="branch-list"></div>
+      <div id="strategyCompare" class="strategy-compare hidden">
+        <h3>策略对比</h3>
+        <table id="compareTable"></table>
+        <canvas id="compareChart" height="130"></canvas>
+      </div>
+    </div>
+
+    <div class="card event-card">
+      <div class="card-head">
+        <h2>事件与告警日志</h2>
+        <button id="btnClearLog" class="btn tiny ghost">清空</button>
+      </div>
+      <div id="eventLog" class="event-log"></div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="modalTitle"></h3>
+    <p id="modalBody"></p>
+    <div class="modal-actions">
+      <button id="modalCancel" class="btn">取消</button>
+      <button id="modalOk" class="btn primary">确认执行</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/sensors.js"></script>
+<script src="js/controller.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
