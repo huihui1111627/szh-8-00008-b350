@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超导量子制冷运行控制台 · CryoOps</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">❄</span>
+    <div>
+      <h1>CryoOps 超导量子制冷运行控制台</h1>
+      <p>温区 · 制冷能力 · 线路噪声 · 控制脉冲 · 器件稳定性 联动推演</p>
+    </div>
+  </div>
+  <div class="sim-meta">
+    <div class="run-picker">
+      <label>当前分支</label>
+      <select id="runSelect"></select>
+    </div>
+    <div class="clock">
+      <div class="clock-time" id="simClock">0h00</div>
+      <div class="clock-sub" id="simPhase">室温 300K</div>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左：制冷机示意 + 温区 -->
+  <section class="col col-left">
+    <div class="card">
+      <div class="card-h"><h2>制冷链路与温区</h2><span class="hint">点击温区可注入传感器异常</span></div>
+      <div id="fridge" class="fridge"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>器件稳定性</h2></div>
+      <div class="kv-grid" id="stabilityGrid"></div>
+    </div>
+  </section>
+
+  <!-- 中：图表 -->
+  <section class="col col-center">
+    <div class="card transport">
+      <div class="transport-controls">
+        <button id="btnPlay" class="primary">▶ 运行</button>
+        <button id="btnPause">⏸ 暂停</button>
+        <button id="btnStep">单步 +1min</button>
+        <button id="btnFast">⏩ 快进到结束</button>
+        <button id="btnReset">↺ 重置</button>
+        <div class="speed-group">
+          <span>速度</span>
+          <button data-speed="60">1min/s</button>
+          <button data-speed="300" class="active">5min/s</button>
+          <button data-speed="1800">30min/s</button>
+        </div>
+      </div>
+      <div class="progress-wrap"><div id="progressBar"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>各级温度（对数坐标，K）</h2>
+        <div class="legend" id="tempLegend"></div></div>
+      <svg id="tempChart" class="chart"></svg>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>线路噪声（折算到器件端，mK）</h2><span class="hint">门限 300 mK</span></div>
+      <svg id="noiseChart" class="chart short"></svg>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>时间线：降温 / 线路 / 校准</h2></div>
+      <svg id="ganttChart" class="chart gantt"></svg>
+    </div>
+  </section>
+
+  <!-- 右：控制 + 策略 + 事件 -->
+  <section class="col col-right">
+    <div class="card" id="readinessCard">
+      <div class="ready-banner" id="readyBanner">系统未就绪</div>
+      <div class="kv-grid" id="readyGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>线路与脉冲</h2></div>
+      <div id="lineControls"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>校准任务</h2></div>
+      <div id="calControls"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>检查点与策略派生</h2></div>
+      <div class="strategy-actions">
+        <button id="btnCheckpoint">＋ 保存当前检查点</button>
+        <button id="btnCompareAll">⚖ 从起点对比三策略</button>
+      </div>
+      <div id="checkpointList" class="sublist"></div>
+      <div id="strategyStats" class="compare"></div>
+    </div>
+
+    <div class="card grow">
+      <div class="card-h"><h2>事件日志</h2>
+        <div class="filter-group">
+          <button data-filter="all" class="active">全部</button>
+          <button data-filter="warn">告警</button>
+          <button data-filter="sensor">传感器</button>
+        </div>
+      </div>
+      <div id="eventLog" class="event-log"></div>
+    </div>
+  </section>
+</main>
+
+<div id="sensorMenu" class="ctx-menu hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/model.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
